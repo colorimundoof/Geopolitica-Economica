@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Geopolítica Econômica"
+description = "Um simulador econômico por turnos em português do Brasil, onde você administra políticas, pesquisa e desafios de seis países para levá-los à condição de potência mundial. O Marco 1 roda inteiramente no navegador e salva partidas localmente."
+version = "1.0.0"
+id = "artifacts/geopolitica-economica"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 25572
+
+[services.development]
+run = "pnpm --filter @workspace/geopolitica-economica run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/geopolitica-economica", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/geopolitica-economica/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "25572"
+BASE_PATH = "/"

@@ -1,0 +1,146 @@
+PROJETO: GEOPOLÍTICA ECONÔMICA — simulador econômico por turnos (navegador)
+
+## Visão
+Jogo single-player por turnos (1 turno = 1 mês). O jogador escolhe um país e gerencia a economia
+(macro e micro) e as pesquisas (econômica, social, militar, governamental, tecnológica).
+Objetivo: levar um país em dificuldade a potência mundial. O foco é economia realista: toda decisão
+tem benefício E custo, sem opção sempre melhor. Interface em português do Brasil.
+
+## Stack
+React + Tailwind + Recharts. JavaScript ou TypeScript (o que a plataforma preferir).
+Marco 1 sem backend (saves em localStorage com campo de versão).
+
+## REGRAS DE ARQUITETURA (OBRIGATÓRIAS)
+1. Toda a lógica econômica fica em src/engine/ como funções PURAS: sem React, sem armazenamento,
+   sem Date.now e sem Math.random. Aleatoriedade só via gerador semeado (src/engine/rng.js, mulberry32).
+2. Componentes só exibem dados e disparam ações. Nenhuma fórmula em componente (inclusive a
+   sugestão de Taylor: chamar a função do engine).
+3. Estado único (GameState), criado por createGameState(country, seed) e versionado (state.version).
+   processTurn(state, decisions) devolve um NOVO estado e nunca muta o recebido.
+4. Todos os coeficientes em src/engine/config.js. Nenhum número mágico nas fórmulas.
+5. Dados dos países em src/data/countries.js.
+6. Valores monetários em US$ milhões; taxas em decimal anual (0.05 = 5% a.a.); índices de 0 a 1.
+   Conversão para mensal só dentro do motor.
+7. Mesmo estado + decisões + seed = mesmo resultado (determinístico).
+8. Saves de versão antiga mostram 'Save de versão antiga — inicie um novo jogo' e bloqueiam o avanço.
+9. Não altere o que já funciona fora do escopo do prompt atual. Se algo for ambíguo, siga este
+   documento e anote em 'Pendências' no final da resposta.
+
+## Estrutura de pastas
+src/engine/: config, rng, init, turn, economy, fiscal, monetary, trade, sectors, social, research,
+             events, rating, victory
+src/data/: countries, research, events
+src/components/ e src/pages/
+
+## PRINCÍPIO DA ÂNCORA (o mais importante)
+Todo efeito de política é medido como DESVIO do estado inicial do país (state.anchor). Sem decisões do
+jogador, cada país deve ficar perto da sua trajetória-base. Nunca use valores absolutos de referência
+(juro neutro, investimento padrão, gasto padrão) nas fórmulas: use o valor inicial do país.
+(Lição aprendida: referências absolutas desequilibram o jogo parado.)
+Em createGameState, calcular o turno 0 completo (receita, despesa, resultado primário, score de
+rating) e guardar em state.anchor: gdp, gdpPerCapita, population, exchangeRate, investmentRate,
+inflation, interestRate, realRate (= juros - expectativa de inflação), confidence, stability,
+nairu, deficitRatio, primaryRatio, indices (cópia), spendingPct (cópia), corporateRate,
+ratingScore, moneyBase e potentialOffset (= baseGrowth - potencial calculado sem offset).
+
+## Ordem de cálculo do turno (fixa)
+1 decisões -> 2 eventos -> 3 pesquisa -> 4 fiscal -> 5 monetário e inflação -> 6 comércio e câmbio
+-> 7 economia real (potencial, crescimento, hiato, PIB, desemprego, investimento)
+-> 8 dívida e rating -> 9 índices, social e estabilidade -> 10 vitória/derrota
+-> 11 histórico e relatório do mês (deltas e mensagens).
+
+## FÓRMULAS (coeficientes iniciais; todos em config.js)
+Potencial:
+  potentialGrowth = 0.02 + 0.02*(educ-0.5) + 0.015*(infra-0.5) + 0.01*(tec-0.5)
+    + 0.3*(investmentRate-0.20) + bonusPesquisas + anchor.potentialOffset
+Crescimento efetivo (anual):
+  efetivo = potencial + 0.5*(deficitRatio - anchor.deficitRatio)
+    - 0.5*clamp(realRate - anchor.realRate, -0.08, 0.08)
+    + 0.1*(confianca - anchor.confidence)
+    - 0.3*max(0, inflacao - max(0.08, anchor.inflation + 0.03)) + choques
+  (deficitRatio = -primaryRatio; limite do efetivo: -0.35 a 0.5)
+Hiato: gap = clamp(0.7*gap_anterior + (efetivo - potencial), -0.15, 0.15)
+PIB: gdp = gdp*(1+efetivo)^(1/12)
+Desemprego: alvo = anchor.nairu - 0.4*clamp(gap,-0.06,0.06); u = u + 0.2*(alvo - u); limites 0.015 a 0.45
+Inflação (anualizada, piso -0.05, teto 2):
+  expectativa = exp + 0.1*(inflacao - exp) + 0.03*institutions*(meta - exp)
+  alvo = expectativa + 0.5*gap + 0.15*depreciaçãoCambial12m + 0.1*(moneyGrowth - anchor.moneyBase) + choqueOferta
+  inflacao = inflacao + 0.25*(alvo - inflacao)
+  moneyGrowth = 0.06 + 3*max(0, deficitRatio) + 0.5*max(0, 0.02 - juroRealAnterior)
+  (superávit nunca encolhe a oferta de moeda; moneyBase usa os valores da âncora)
+Juros (modo automatico ou manual, state.policy.rateMode; padrão 'auto'):
+  auto: alvo = expectativa + anchor.realRate + 0.5*(inflacao - anchor.inflation) + 0.5*gap;
+        passo limitado a +-0.01 por mês; juros entre 0 e 0.8. Ignora o slider do jogador.
+  manual: usa o valor do jogador. Giro acima de 0.02 em um mês, feito pelo jogador, custa 0.03 de
+        confiança (o piloto automático nunca é penalizado). Botão 'Voltar ao automático'.
+  juro real esperado = juros - expectativa de inflação (exibir com este rótulo).
+  Sugestão exibida de Taylor: 0.03 + inflacao + 0.5*(inflacao - meta) + 0.5*gap
+Fiscal:
+  receita de cada imposto = gdp*(1+bonusEficiência)*baseShare*aliquota*eficiencia(aliquota)
+  eficiencia(a) = max(0.05, 1 - 0.9*(a/aliquotaMax)^2)   (curva de Laffer)
+  baseShare: renda 0.55, corporativo 0.32, consumo 0.58; aliquotaMax: 0.72, 0.62, 0.42
+  despesa de cada categoria = gdp * pct (saúde, educação, infraestrutura, defesa, pesquisa, outras)
+  primary = receita - despesa
+Dívida:
+  debtCostAvg converge 4% ao mês para (juros + prêmio(rating) - prêmio(ratingInicial)); inicia = juros inicial
+  debt = debt - primary*nivelDePreços/12 + debtCostAvg*debt/12; dívida/PIB = debt/(gdp*nivelDePreços)
+  prêmio: AAA 0, AA 0.005, A 0.01, BBB 0.02, BB 0.04, B 0.07, CCC 0.12, D 0.20
+Investimento:
+  alvo = anchor.investmentRate + 0.4*(confianca - anchor.confidence) + 0.4*(anchor.realRate - juroRealAtual)
+    - 0.0015*(pontos percentuais de imposto corporativo acima de max(0.25, anchor.corporateRate))
+    + bonus; investimento += 0.15*(alvo - investimento); limites 0.05 a 0.45
+Índices (educação, saúde, infraestrutura, tecnologia via gasto em pesquisa):
+  alvo_k = clamp(anchor.indices[k]*(1 + 0.6*(gasto/anchor.spendingPct[k] - 1)), 0.05, 0.98)
+  índice += 0.05*(alvo_k - índice) (tecnologia 0.06)
+  instituições: alvo = 0.35 + 0.4*estabilidade + 0.15*score/100 - 0.25*max(0, inflacao-0.06); velocidade 0.02
+Confiança:
+  alvo = clamp(anchor.confidence + 0.3*(estabilidade - anchor.stability) + 0.2*(score/100 - anchor.ratingScore/100)
+    - 0.4*max(0, inflacao - max(0.07, anchor.inflation)), 0.1, 1); confiança += 0.18*(alvo - confiança)
+Câmbio (moeda local por dólar):
+  pressão anual = 0.4*(-contaCorrente/PIB) - 0.3*(juroReal - 0.02) - 0.2*(confiança - 0.5) + choque N(0, 0.01)
+  variação mensal = pressão/12 - efeitoIntervenção (0.004 por mês de intervenção, que custa 0.2% das reservas)
+  Comércio simples: exportações ~14% do PIB, importações ~13%, sensíveis ao câmbio real e ao PIB.
+Rating:
+  score 0 a 100 = 30*f(dívida/PIB, melhor 0.4, pior 1.4) + 20*f(déficit NOMINAL, melhor -0.02, pior 0.10)
+    + 15*f(inflação, melhor 0.02, pior 0.27) + 20*estabilidade + 15*f(reservas em meses de importação, 6 = melhor)
+  déficit nominal = -primaryRatio + juros da dívida/PIB (o rating INCLUI os juros)
+  scoreAjustado = score + (meio da faixa do rating inicial - anchor.ratingScore), limitado a 0..100
+  escala: AAA 90, AA 80, A 70, BBB 58, BB 45, B 32, CCC 18, D 0
+  histerese: no máximo 1 nível por vez e 1 mudança a cada 6 turnos
+Social: felicidade (suavização 0.15) e estabilidade (0.12) reagem a desemprego, inflação acima de 5%,
+  saúde, educação e renda; desigualdade (0.05) sobe com inflação, desemprego e imposto de consumo alto.
+  Estabilidade abaixo de 0.2 por 6 turnos = crise política.
+Pesquisa: pontos por mês = 2 + 60*(gasto em pesquisa/PIB); 10 projetos em 5 áreas, com custo em pontos,
+  duração e efeitos em modificadores (bônus), nunca reescrevendo valores base.
+Eventos: sorteio mensal com o gerador semeado, no máximo 2 ativos, com cooldown; efeitos temporários.
+Vitória (mantida por 24 meses): PIB 2.2x o inicial, PIB per capita 2.4x, tecnologia >= 0.8,
+  instituições >= 0.75, estabilidade >= 0.7, rating >= A.
+Derrota: default (rating D por 6 turnos), crise política prolongada, hiperinflação (>= 100% a.a. por 12 turnos).
+
+## PAÍSES (seed; valores aproximados e editáveis)
+Campos: população (mi) | PIB (US$ mi) | desemprego | inflação | meta | juros | câmbio | reservas (US$ mi)
+| dívida/PIB | rating | hiato | confiança | investimento | moneyGrowth | nairu | baseGrowth | dívida em moeda externa
+- Brasil (moderado): 213 | 2.170.000 | 0.078 | 0.045 | 0.03 | 0.095 | 5.4 | 340.000 | 0.78 | BB | -0.01 | 0.46 | 0.18 | 0.07 | 0.074 | 0.02 | 0.05
+- México (moderado): 130 | 1.790.000 | 0.028 | 0.047 | 0.03 | 0.085 | 17.2 | 215.000 | 0.58 | BBB | 0.005 | 0.55 | 0.21 | 0.06 | 0.030 | 0.02 | 0.25
+- Indonésia (acessível): 279 | 1.370.000 | 0.049 | 0.032 | 0.03 | 0.058 | 15.800 | 139.000 | 0.39 | BBB | 0.01 | 0.60 | 0.29 | 0.08 | 0.053 | 0.05 | 0.30
+- Turquia (difícil): 85 | 1.110.000 | 0.092 | 0.48 | 0.05 | 0.42 | 34.5 | 141.000 | 0.30 | B | 0.02 | 0.40 | 0.26 | 0.35 | 0.100 | 0.04 | 0.45
+- Nigéria (difícil): 223 | 363.000 | 0.33 | 0.28 | 0.08 | 0.185 | 1.480 | 36.000 | 0.47 | CCC | -0.02 | 0.35 | 0.15 | 0.22 | 0.322 | 0.03 | 0.40
+- Argentina (difícil): 46 | 640.000 | 0.085 | 0.28 | 0.10 | 0.22 | 1.050 | 26.000 | 0.62 | CCC | -0.03 | 0.32 | 0.17 | 0.30 | 0.073 | 0.02 | 0.60
+Demais campos por país (índices: educação, saúde, infraestrutura, tecnologia, instituições | social: estabilidade,
+felicidade, desigualdade | impostos: renda, corporativo, consumo | gastos % do PIB: saúde, educação,
+infraestrutura, defesa, pesquisa, outras | setores % do PIB: agropecuária, indústria, serviços, tecnologia):
+- Brasil: 0.55/0.58/0.44/0.52/0.45 | 0.60/0.55/0.62 | 0.27/0.34/0.17 | 0.045/0.05/0.022/0.011/0.012/0.150 | 0.07/0.21/0.66/0.06
+- México: 0.54/0.55/0.56/0.55/0.52 | 0.60/0.56/0.60 | 0.22/0.30/0.16 | 0.045/0.06/0.045/0.01/0.008/0.094 | 0.04/0.30/0.60/0.06
+- Indonésia: 0.48/0.50/0.42/0.44/0.50 | 0.64/0.58/0.55 | 0.16/0.22/0.11 | 0.03/0.045/0.055/0.008/0.01/0.073 | 0.13/0.40/0.43/0.04
+- Turquia: 0.55/0.60/0.62/0.50/0.42 | 0.50/0.50/0.58 | 0.24/0.25/0.20 | 0.035/0.045/0.035/0.018/0.01/0.131 | 0.06/0.30/0.58/0.06
+- Nigéria: 0.35/0.32/0.30/0.33/0.28 | 0.38/0.42/0.72 | 0.12/0.30/0.075 | 0.012/0.018/0.03/0.012/0.004/0.136 | 0.24/0.30/0.43/0.03
+- Argentina: 0.62/0.60/0.50/0.50/0.35 | 0.42/0.48/0.58 | 0.26/0.30/0.21 | 0.04/0.045/0.02/0.007/0.007/0.177 | 0.08/0.24/0.62/0.06
+
+## MARCO 2 (NÃO CONSTRUIR AGORA; só para manter a arquitetura compatível)
+- Risco-país contínuo calculado dos fundamentos (dívida, déficit, inflação, reservas, instituições, crescimento),
+  como desvio da âncora; o rating vira rótulo dele, com histerese. Alimenta custo da dívida, câmbio e FDI.
+- Fuga de capitais quando o risco-país sobe: depreciação extra do câmbio, perda de reservas e de confiança.
+- Dívida em moeda estrangeira: a depreciação aumenta a dívida na parcela externa.
+- Crédito e inadimplência: juros reais altos elevam a inadimplência lentamente; o excesso reduz crescimento e
+  investimento e eleva o risco-país; defasagem nos efeitos dos juros reais.
+- Depois: conselheiros por regras, estatais, recursos naturais, previdência, FMI e blocos, sanções e FDI.

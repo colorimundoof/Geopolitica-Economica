@@ -1,15 +1,16 @@
-# [Project name]
+# Geopolítica Econômica
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+Simulador econômico mensal para administrar políticas, pesquisa e desafios de seis países.
 
 ## Run & Operate
 
 - `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- `pnpm --filter @workspace/geopolitica-economica run dev` — run the browser game
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- `DATABASE_URL` is used by the shared API server; the game itself has no backend requirement.
 
 ## Stack
 
@@ -22,23 +23,28 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/geopolitica-economica/src/engine/` — pure economic simulation and game rules.
+- `artifacts/geopolitica-economica/src/engine/config.ts` — coefficients and limits.
+- `artifacts/geopolitica-economica/src/data/` — countries, research projects, and events.
+- `artifacts/geopolitica-economica/src/App.tsx` and `src/index.css` — browser game interface.
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- The first milestone is browser-only; campaigns are versioned in local storage.
+- Economic rules are deterministic, pure functions and use the seeded Mulberry32 generator for events and currency shocks.
+- The second-milestone capital flight, foreign-currency debt revaluation, and credit defaults are intentionally not implemented.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+Choose one of six countries, set fiscal and monetary policies, prioritize research, handle seeded events, and track monthly economic outcomes and victory or defeat conditions.
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+The interface and in-game messages are in Brazilian Portuguese.
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- The game has no server-side save; clearing browser storage removes the local campaign.
 
 ## Pointers
 
