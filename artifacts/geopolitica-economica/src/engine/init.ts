@@ -54,6 +54,10 @@ export function createGameState(
     nominalDeficitRatio: 0,
     ratingScore: 0,
     rating: country.rating,
+    riskSpread: CONFIG.debt.ratingPremium[country.rating],
+    npl: CONFIG.credit.initialNpl,
+    realRateLag: country.interestRate - country.inflation,
+    capitalFlight: 0,
     indices: { ...country.indices },
     spendingPct: { ...country.spendingPct },
     taxRates: { ...country.taxRates },
@@ -94,6 +98,10 @@ export function createGameState(
     moneyBase: country.moneyGrowth,
     potentialOffset: 0,
     priceLevel: economy.priceLevel,
+    reserves: economy.reserves,
+    debtToGdp: economy.debtToGdp,
+    riskSpread: economy.riskSpread,
+    npl: economy.npl,
   };
   anchor.potentialOffset =
     country.baseGrowth -
@@ -134,6 +142,8 @@ export function createGameState(
     debtToGdp: economy.debtToGdp,
     rating: economy.rating,
     ratingScore: economy.ratingScore,
+    riskSpread: economy.riskSpread,
+    npl: economy.npl,
     growth: economy.growth,
     happiness: economy.happiness,
     stability: economy.stability,

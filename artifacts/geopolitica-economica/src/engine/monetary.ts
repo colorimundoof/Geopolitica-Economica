@@ -1,5 +1,5 @@
 import { CONFIG, clamp } from "./config";
-import { annualizedDepreciation } from "./trade";
+import { annualizedDepreciation, baselineDepreciation } from "./trade";
 import type {
   EventEffect,
   GameAnchor,
@@ -80,7 +80,7 @@ export function calculateMonetaryOutcome(
     expectedInflation +
     CONFIG.monetary.inflationGapResponse * current.gap +
     CONFIG.monetary.inflationDepreciationResponse *
-      annualizedDepreciation(state) +
+      (annualizedDepreciation(state) - baselineDepreciation(anchor)) +
     CONFIG.monetary.inflationMoneyResponse *
       (moneyGrowth - anchor.moneyBase) +
     eventEffects.inflation;

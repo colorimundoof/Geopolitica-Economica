@@ -32,7 +32,7 @@ Simulador econômico mensal para administrar políticas, pesquisa e desafios de 
 
 - The first milestone is browser-only; campaigns are versioned in local storage.
 - Economic rules are deterministic, pure functions and use the seeded Mulberry32 generator for events and currency shocks.
-- The second-milestone capital flight, foreign-currency debt revaluation, and credit defaults are intentionally not implemented.
+- Milestone 2 is implemented in the engine: continuous country-risk spread (`engine/risk.ts`) with the rating as a hysteresis label of that spread, capital flight, foreign-currency debt revaluation, credit defaults (NPL) with a lasting drag, and a lag on real-rate effects. Saves are version 2.
 
 ## Product
 

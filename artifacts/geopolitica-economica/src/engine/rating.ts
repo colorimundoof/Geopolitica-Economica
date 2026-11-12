@@ -88,13 +88,48 @@ export function ratingFromScore(score: number): Rating {
   return "D";
 }
 
+export function ratingFromSpread(spread: number): Rating {
+  for (const band of CONFIG.risk.ratingBands) {
+    if (spread < band.below) return band.rating;
+  }
+  return "D";
+}
+
 export function updateRatingWithHysteresis(
   score: number,
   currentRating: Rating,
   turn: number,
   lastChangeTurn: number,
 ): { rating: Rating; lastChangeTurn: number } {
-  const desired = ratingFromScore(score);
+  return stepRating(
+    ratingFromScore(score),
+    currentRating,
+    turn,
+    lastChangeTurn,
+  );
+}
+
+/** Rating vira rótulo do risco-país, com histerese (1 nível por vez, 1 vez a cada 6 meses). */
+export function updateRatingFromSpread(
+  spread: number,
+  currentRating: Rating,
+  turn: number,
+  lastChangeTurn: number,
+): { rating: Rating; lastChangeTurn: number } {
+  return stepRating(
+    ratingFromSpread(spread),
+    currentRating,
+    turn,
+    lastChangeTurn,
+  );
+}
+
+function stepRating(
+  desired: Rating,
+  currentRating: Rating,
+  turn: number,
+  lastChangeTurn: number,
+): { rating: Rating; lastChangeTurn: number } {
   const currentIndex = RATING_ORDER.indexOf(currentRating);
   const desiredIndex = RATING_ORDER.indexOf(desired);
   const elapsed = turn - lastChangeTurn;

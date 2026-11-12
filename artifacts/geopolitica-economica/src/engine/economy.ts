@@ -7,6 +7,7 @@ import type {
 } from "./types";
 import type { FiscalResult } from "./fiscal";
 import type { ResearchEffects } from "./research";
+import { creditExcess } from "./risk";
 
 export interface RealEconomyResult {
   gdp: number;
@@ -51,13 +52,15 @@ export function calculateRealEconomy(
     anchor,
     research,
   );
+  const creditDrag = creditExcess(current.npl, anchor);
   const effectiveGrowth = clamp(
-    potentialGrowth +
+    potentialGrowth -
+      CONFIG.credit.growthDrag * creditDrag +
       CONFIG.growth.deficitResponse *
         (fiscal.deficitRatio - anchor.deficitRatio) -
       CONFIG.growth.realRateResponse *
         clamp(
-          current.realRate - anchor.realRate,
+          current.realRateLag - anchor.realRate,
           CONFIG.clamp.realRateDifferenceMinimum,
           CONFIG.clamp.realRateDifferenceMaximum,
         ) +
@@ -114,8 +117,10 @@ export function calculateRealEconomy(
     anchor.investmentRate +
     CONFIG.investment.confidenceResponse *
       (current.confidence - anchor.confidence) +
-    CONFIG.investment.realRateResponse * (anchor.realRate - current.realRate) -
-    CONFIG.investment.corporateTaxPenalty * taxPointsAboveBenchmark +
+    CONFIG.investment.realRateResponse *
+      (anchor.realRate - current.realRateLag) -
+    CONFIG.investment.corporateTaxPenalty * taxPointsAboveBenchmark -
+    CONFIG.credit.investmentDrag * creditDrag +
     research.investment;
   const investmentRate = clamp(
     current.investmentRate +

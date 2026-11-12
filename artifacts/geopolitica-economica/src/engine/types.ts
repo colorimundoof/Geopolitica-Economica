@@ -120,6 +120,10 @@ export interface GameAnchor {
   moneyBase: number;
   potentialOffset: number;
   priceLevel: number;
+  reserves: number;
+  debtToGdp: number;
+  riskSpread: number;
+  npl: number;
 }
 
 export interface Policy {
@@ -174,6 +178,10 @@ export interface Economy {
   nominalDeficitRatio: number;
   ratingScore: number;
   rating: Rating;
+  riskSpread: number;
+  npl: number;
+  realRateLag: number;
+  capitalFlight: number;
   indices: CountryIndices;
   spendingPct: CountrySpending;
   taxRates: CountryTaxRates;
@@ -214,6 +222,8 @@ export interface MonthlyRecord {
   debtToGdp: number;
   rating: Rating;
   ratingScore: number;
+  riskSpread: number;
+  npl: number;
   growth: number;
   happiness: number;
   stability: number;
@@ -277,4 +287,4 @@ export interface GameSummary {
   victoryProgress: number;
 }
 
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;

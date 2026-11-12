@@ -823,7 +823,7 @@ tbody td:first-child { color: #40594c; font-weight: 600; }
 
 .indicator-strip {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   border: 1px solid var(--line);
   background: rgba(248, 246, 238, 0.75);
 }
