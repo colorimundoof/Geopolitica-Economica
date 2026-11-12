@@ -74,6 +74,10 @@ function isValidGameState(value: unknown): value is GameState {
     "deficitRatio",
     "nominalDeficitRatio",
     "ratingScore",
+    "riskSpread",
+    "npl",
+    "realRateLag",
+    "capitalFlight",
   ];
   const anchorFields = [
     "gdp",
@@ -98,6 +102,10 @@ function isValidGameState(value: unknown): value is GameState {
     "moneyBase",
     "potentialOffset",
     "priceLevel",
+    "reserves",
+    "debtToGdp",
+    "riskSpread",
+    "npl",
   ];
   const policy = candidate.policy;
   const current = candidate.current;

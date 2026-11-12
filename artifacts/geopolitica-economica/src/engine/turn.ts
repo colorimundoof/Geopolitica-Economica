@@ -1,10 +1,11 @@
 import { COUNTRIES } from "@/data/countries";
+import { capitalFlightPressure, nextNpl, nextRiskSpread } from "./risk";
 import { CONFIG, clamp } from "./config";
 import { calculateRealEconomy } from "./economy";
 import { advanceEvents, sumEventEffects } from "./events";
 import { calculateFiscal } from "./fiscal";
 import { calculateMonetaryOutcome } from "./monetary";
-import { adjustedRatingScore, calculateRawRatingScore, updateRatingWithHysteresis } from "./rating";
+import { adjustedRatingScore, calculateRawRatingScore, updateRatingFromSpread } from "./rating";
 import { advanceResearch, getResearchEffects } from "./research";
 import { updateIndicesAndSocial } from "./social";
 import { updateTradeAndExchange } from "./trade";
@@ -129,6 +130,16 @@ function createReport(
   if (completedProject) {
     messages.push(`Pesquisa concluída: ${completedProject}.`);
   }
+  if (state.current.capitalFlight > 0.001) {
+    messages.push(
+      `Fuga de capitais: o risco-país subiu e pressiona o câmbio em ${(state.current.capitalFlight * CONFIG.rating.scoreScale).toFixed(1)}% ao ano.`,
+    );
+  }
+  if (state.current.npl > CONFIG.risk.highCreditMessageThreshold) {
+    messages.push(
+      `A inadimplência chegou a ${(state.current.npl * CONFIG.rating.scoreScale).toFixed(1)}% e trava o crédito e o investimento.`,
+    );
+  }
   if (state.current.rating !== previousRating) {
     messages.push(
       `O rating mudou de ${previousRating} para ${state.current.rating}.`,
@@ -203,10 +214,32 @@ export function processTurn(
     activeEvents: eventAdvance.activeEvents,
     eventCooldowns: eventAdvance.cooldowns,
   };
-  const trade = updateTradeAndExchange(tradeState, eventEffects);
+  const capitalFlight = capitalFlightPressure(
+    decidedState.current.riskSpread,
+    state.anchor,
+  );
+  const trade = updateTradeAndExchange(
+    tradeState,
+    eventEffects,
+    capitalFlight,
+  );
+  const npl = nextNpl(currentAfterMonetary, state.anchor);
+  const realRateLag =
+    decidedState.current.realRateLag +
+    CONFIG.lag.realRate *
+      (monetary.realRate - decidedState.current.realRateLag);
   const currentAfterTrade = {
     ...currentAfterMonetary,
     ...trade,
+    npl,
+    realRateLag,
+    capitalFlight,
+    confidence: clamp(
+      currentAfterMonetary.confidence -
+        CONFIG.risk.flight.confidenceHit * capitalFlight,
+      CONFIG.clamp.confidenceMinimum,
+      CONFIG.clamp.confidenceMaximum,
+    ),
   };
   const realEconomy = calculateRealEconomy(
     { ...tradeState, current: currentAfterTrade },
@@ -219,21 +252,31 @@ export function processTurn(
     ...realEconomy,
   };
 
-  const initialRating = COUNTRIES[state.countryId].rating;
+  const country = COUNTRIES[state.countryId];
+  const initialRating = country.rating;
   const debtCostTarget =
     currentAfterGrowth.interestRate +
-    CONFIG.debt.ratingPremium[currentAfterGrowth.rating] -
-    CONFIG.debt.ratingPremium[initialRating];
+    (state.current.riskSpread - state.anchor.riskSpread);
   const debtCostAvg =
     currentAfterGrowth.debtCostAvg +
     CONFIG.debt.convergenceMonthly *
       (debtCostTarget - currentAfterGrowth.debtCostAvg);
+  // dívida em moeda estrangeira: desvalorização do câmbio aumenta o estoque
+  const monthlyDepreciation =
+    state.current.exchangeRate > 0
+      ? currentAfterGrowth.exchangeRate / state.current.exchangeRate - 1
+      : 0;
+  const foreignRevaluation =
+    country.foreignDebtShare *
+    currentAfterGrowth.debt *
+    monthlyDepreciation;
   const debt =
     currentAfterGrowth.debt -
     (fiscal.summary.primaryBalance * currentAfterGrowth.priceLevel) /
       CONFIG.debt.primaryMonthlyDivisor +
     (debtCostAvg * currentAfterGrowth.debt) /
-      CONFIG.debt.interestMonthlyDivisor;
+      CONFIG.debt.interestMonthlyDivisor +
+    foreignRevaluation;
   const debtToGdp =
     debt /
     (currentAfterGrowth.gdp * currentAfterGrowth.priceLevel);
@@ -252,8 +295,18 @@ export function processTurn(
     initialRating,
   );
   const nextTurn = state.turn + 1;
-  const ratingUpdate = updateRatingWithHysteresis(
-    ratingScore,
+  const riskSpread = nextRiskSpread(state.current.riskSpread, state.anchor, {
+    debtToGdp,
+    deficitRatio: fiscal.deficitRatio,
+    inflation: currentBeforeRating.inflation,
+    reserves: currentBeforeRating.reserves,
+    institutions: currentBeforeRating.indices.institutions,
+    growth: currentBeforeRating.growth,
+    potentialGrowth: currentBeforeRating.potentialGrowth,
+    npl: currentBeforeRating.npl,
+  });
+  const ratingUpdate = updateRatingFromSpread(
+    riskSpread,
     currentBeforeRating.rating,
     nextTurn,
     state.lastRatingChangeTurn,
@@ -261,6 +314,7 @@ export function processTurn(
   const currentRated = {
     ...currentBeforeRating,
     ratingScore,
+    riskSpread,
     rating: ratingUpdate.rating,
   };
   const current = updateIndicesAndSocial(
@@ -309,6 +363,8 @@ export function processTurn(
     debtToGdp: current.debtToGdp,
     rating: current.rating,
     ratingScore: current.ratingScore,
+    riskSpread: current.riskSpread,
+    npl: current.npl,
     growth: current.growth,
     happiness: current.happiness,
     stability: current.stability,

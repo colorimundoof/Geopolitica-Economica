@@ -50,12 +50,24 @@ export function calculateTrade(
   return { exports, imports, currentAccount: exports - imports };
 }
 
+/** Depreciação anual "normal" do país (diferencial de inflação da âncora). */
+export function baselineDepreciation(anchor: GameAnchor): number {
+  return (
+    CONFIG.trade.inflationPassThrough *
+    (anchor.inflation - CONFIG.trade.worldInflation)
+  );
+}
+
 export function updateTradeAndExchange(
   state: GameState,
   eventEffects: Pick<EventEffect, "exchangeRate">,
+  capitalFlight = 0,
 ): TradeResult {
   const current = state.current;
   const pressure =
+    CONFIG.trade.inflationPassThrough *
+      (current.inflation - CONFIG.trade.worldInflation) +
+    capitalFlight +
     CONFIG.trade.currentAccountResponse *
       (-current.currentAccount /
         Math.max(current.gdp, CONFIG.scale.identity)) -
@@ -75,13 +87,18 @@ export function updateTradeAndExchange(
     CONFIG.clamp.exchangeMinimum,
     current.exchangeRate * (CONFIG.scale.identity + monthlyVariation),
   );
-  const reserves = state.policy.fxIntervention
+  const afterIntervention = state.policy.fxIntervention
     ? Math.max(
         0,
         current.reserves *
           (1 - CONFIG.trade.interventionReserveCost),
       )
     : current.reserves;
+  const reserves = Math.max(
+    0,
+    afterIntervention *
+      (1 - CONFIG.risk.flight.reserveDrain * capitalFlight),
+  );
   const trade = calculateTrade(
     current.gdp,
     exchangeRate,

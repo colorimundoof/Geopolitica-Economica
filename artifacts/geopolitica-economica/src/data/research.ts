@@ -11,7 +11,7 @@ export const RESEARCH_CATALOG: ResearchDefinition[] = [
     name: "Crédito produtivo",
     area: "Econômica",
     description: "Amplia o acesso a capital para empresas e novos investimentos.",
-    cost: 90,
+    cost: 25,
     bonus: 0.003,
   },
   {
@@ -19,7 +19,7 @@ export const RESEARCH_CATALOG: ResearchDefinition[] = [
     name: "Modernização tributária",
     area: "Econômica",
     description: "Reduz distorções na arrecadação e melhora a eficiência fiscal.",
-    cost: 110,
+    cost: 30,
     bonus: 0.004,
   },
   {
@@ -27,7 +27,7 @@ export const RESEARCH_CATALOG: ResearchDefinition[] = [
     name: "Rede pública de saúde",
     area: "Social",
     description: "Melhora resultados sociais e resiliência da população.",
-    cost: 100,
+    cost: 25,
     bonus: 0.025,
   },
   {
@@ -35,7 +35,7 @@ export const RESEARCH_CATALOG: ResearchDefinition[] = [
     name: "Educação técnica",
     area: "Social",
     description: "Prepara trabalhadores para setores de maior produtividade.",
-    cost: 130,
+    cost: 35,
     bonus: 0.03,
   },
   {
@@ -43,7 +43,7 @@ export const RESEARCH_CATALOG: ResearchDefinition[] = [
     name: "Logística de defesa",
     area: "Militar",
     description: "Fortalece a capacidade de resposta e a segurança nacional.",
-    cost: 120,
+    cost: 30,
     bonus: 0.025,
   },
   {
@@ -51,7 +51,7 @@ export const RESEARCH_CATALOG: ResearchDefinition[] = [
     name: "Indústria estratégica",
     area: "Militar",
     description: "Desenvolve fornecedores nacionais de materiais essenciais.",
-    cost: 160,
+    cost: 40,
     bonus: 0.002,
   },
   {
@@ -59,7 +59,7 @@ export const RESEARCH_CATALOG: ResearchDefinition[] = [
     name: "Governo digital",
     area: "Governamental",
     description: "Simplifica serviços públicos e fortalece a capacidade do Estado.",
-    cost: 110,
+    cost: 30,
     bonus: 0.035,
   },
   {
@@ -67,7 +67,7 @@ export const RESEARCH_CATALOG: ResearchDefinition[] = [
     name: "Qualidade regulatória",
     area: "Governamental",
     description: "Dá previsibilidade às regras e melhora o ambiente de negócios.",
-    cost: 150,
+    cost: 40,
     bonus: 0.04,
   },
   {
@@ -75,7 +75,7 @@ export const RESEARCH_CATALOG: ResearchDefinition[] = [
     name: "Computação avançada",
     area: "Tecnológica",
     description: "Acelera a inovação e a difusão de tecnologia na economia.",
-    cost: 180,
+    cost: 45,
     bonus: 0.006,
   },
   {
@@ -83,7 +83,7 @@ export const RESEARCH_CATALOG: ResearchDefinition[] = [
     name: "Energia limpa",
     area: "Tecnológica",
     description: "Diversifica a matriz energética e reduz riscos de oferta.",
-    cost: 200,
+    cost: 50,
     bonus: 0.007,
   },
 ];

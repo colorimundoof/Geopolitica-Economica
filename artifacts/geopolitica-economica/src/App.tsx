@@ -246,7 +246,7 @@ function Overview({ state, country, summary, onCloseMonth }: { state: GameState;
       <Metric label="Produto interno bruto" value={`$ ${gdpLabel(economy.gdp)}`} detail={`${pct(economy.growth, 2)} crescimento anualizado`} tone={economy.growth >= 0 ? "up" : "down"} icon={TrendingUp} />
       <Metric label="Inflação" value={pct(economy.inflation)} detail={`Meta ${pct(economy.inflationTarget)} · ${economy.inflation > economy.inflationTarget ? "acima do alvo" : "próxima do alvo"}`} tone={economy.inflation > economy.inflationTarget ? "down" : "up"} icon={Activity} />
       <Metric label="Desemprego" value={pct(economy.unemployment)} detail={`Confiança ${pct(economy.confidence)}`} tone="neutral" icon={BarChart3} />
-      <Metric label="Dívida / PIB" value={pct(economy.debtToGdp)} detail={`Nota soberana ${economy.rating}`} tone={economy.debtToGdp > .8 ? "down" : "neutral"} icon={Landmark} />
+      <Metric label="Dívida / PIB" value={pct(economy.debtToGdp)} detail={`Nota ${economy.rating} · risco-país ${money(economy.riskSpread * 10000, 0)} pb`} tone={economy.debtToGdp > .8 ? "down" : "neutral"} icon={Landmark} />
     </div>
     <section className="indicator-strip" aria-label="Outros indicadores econômicos">
       <div><span>PIB per capita</span><b className="mono">$ {money(economy.gdpPerCapita)}</b></div>
@@ -254,6 +254,7 @@ function Overview({ state, country, summary, onCloseMonth }: { state: GameState;
       <div><span>Câmbio</span><b className="mono">{money(economy.exchangeRate, 2)} / US$</b></div>
       <div><span>Investimento / PIB</span><b className="mono">{pct(economy.investmentRate)}</b></div>
       <div><span>Reservas internacionais</span><b className="mono">$ {money(economy.reserves / 1000, 1)} bi</b></div>
+      <div><span>Inadimplência</span><b className="mono">{pct(economy.npl)}</b></div>
     </section>
     <div className="dashboard-grid">
       <section className="panel history-panel">
@@ -354,6 +355,22 @@ function SliderControl({ label, value, min, max, step, display, onChange, testId
   return <label className="slider-control"><span className="slider-label">{label}<b className="mono">{display}</b></span><input type="range" min={min} max={max} step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} data-testid={testId} /><span className="slider-limits"><i>{pct(min, 0)}</i><i>{pct(max, 0)}</i></span></label>;
 }
 
+function researchEffectLabel(area: string): string {
+  switch (area) {
+    case "Econômica":
+    case "Tecnológica":
+      return "CRESCIMENTO POTENCIAL";
+    case "Social":
+      return "BEM-ESTAR";
+    case "Militar":
+      return "ESTABILIDADE";
+    case "Governamental":
+      return "INSTITUIÇÕES";
+    default:
+      return "BÔNUS";
+  }
+}
+
 function ResearchPage({ state, onPatch }: { state: GameState; onPatch: (patch: Decisions) => void }) {
   const selected = state.policy.researchProjectId;
   return <div className="section-stack">
@@ -366,7 +383,7 @@ function ResearchPage({ state, onPatch }: { state: GameState; onPatch: (patch: D
         <div className="research-card-top"><span className="project-number">PROJETO / 0{index + 1}</span><Pill className={project.completed ? "complete-pill" : ""}>{project.completed ? "CONCLUÍDO" : project.area.toUpperCase()}</Pill></div>
         <div className="research-card-body"><div className="project-icon"><Lightbulb size={18} /></div><div className="project-copy"><h3>{project.name}</h3><p>{project.description}</p></div><div className="project-cost"><span>CUSTO</span><b className="mono">{money(project.cost)} RP</b></div></div>
         <div className="project-progress-row"><span>PROGRESSO</span><b className="mono">{pct(project.progress, 0)}</b></div><div className="project-progress"><i style={{ width: `${Math.max(0, Math.min(project.progress * 100, 100))}%` }} /></div>
-        <div className="research-card-foot"><span><Sparkles size={14} /> BÔNUS POTENCIAL <b className="mono">+{pct(project.bonus, 1)}</b></span>
+        <div className="research-card-foot"><span><Sparkles size={14} /> {researchEffectLabel(project.area)} <b className="mono">+{pct(project.bonus, 1)}</b></span>
           {project.completed ? <span className="project-completed"><CircleCheck size={15} /> BENEFÍCIO ATIVO</span> : <button className={selected === project.id ? "secondary-button selected-project" : "secondary-button"} onClick={() => onPatch({ researchProjectId: selected === project.id ? null : project.id })} data-testid={`button-select-research-${project.id}`}>{selected === project.id ? "Remover prioridade" : "Priorizar projeto"}</button>}
         </div>
       </article>)}</div>}

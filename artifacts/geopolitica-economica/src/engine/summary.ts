@@ -24,9 +24,8 @@ function calculateFiscalSummary(state: GameState): FiscalSummary {
     state.policy.spendingPct,
     research.taxEfficiency,
   );
-  const debtInterest =
-    (state.current.debt * state.current.debtCostAvg) /
-    CONFIG.debt.interestMonthlyDivisor;
+  // anual, na mesma unidade da receita, da despesa e do saldo primário
+  const debtInterest = state.current.debt * state.current.debtCostAvg;
   return {
     ...fiscal.summary,
     debtInterest,
